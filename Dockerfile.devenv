@@ -1,0 +1,47 @@
+####################################################
+# From here on we have devcontainer utilities
+####################################################
+FROM dpar39/v3d-base:latest
+
+RUN wget https://apt.llvm.org/llvm.sh \
+    && chmod +x llvm.sh \
+    && ./llvm.sh 15 all \
+    && rm llvm.sh \
+    && apt-get clean
+
+RUN ln -sf /usr/bin/clangd-15 /usr/bin/clangd \
+    && ln -sf /usr/bin/clang-format-15 /usr/bin/clang-format \
+    && ln -sf /usr/bin/clang-tidy-15 /usr/bin/clang-tidy \
+    && ln -sf /usr/bin/lldb-15 /usr/bin/lldb
+
+RUN apt-get update --fix-missing \
+    && DEBIAN_FRONTEND="noninteractive" apt-get -y install \
+        bash-completion \
+    && apt-get clean
+
+RUN npm install -g autocomplete
+
+##################################################
+# Create the playpen user
+##################################################
+RUN userdel emscripten
+ARG USER_NAME
+ARG USER_UID
+ARG USER_GID
+
+ENV HOME=/home/$USER_NAME
+RUN groupadd --gid $USER_GID $USER_NAME; exit 0
+RUN useradd --uid $USER_UID --gid $USER_GID -m $USER_NAME \
+    && echo $USER_NAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USER_NAME \
+    && chmod 0440 /etc/sudoers.d/$USER_NAME \
+    && chown -R $USER_NAME $HOME
+
+USER ${USER_NAME}
+
+# Shell preparations
+RUN echo "[[ -f /workspace/.devcontainer/.bashrc ]] && source /workspace/.devcontainer/.bashrc" >> $HOME/.bashrc
+RUN npm completion >> $HOME/.bashrc
+
+ENV CCACHE_DIR /workspace/.ccache
+ENV CCACHE_SIZE 20G
+ENV EMSDK_QUIET 1

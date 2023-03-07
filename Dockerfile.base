@@ -1,0 +1,70 @@
+FROM emscripten/emsdk:3.1.32
+
+SHELL ["/bin/bash", "-c"]
+
+# System packages that facilitate the build process
+RUN apt-get update --fix-missing \
+    && DEBIAN_FRONTEND="noninteractive" apt-get -y --no-install-recommends install \
+        git \
+        wget \
+        curl \
+        sudo \
+        bzip2 \
+        unzip \
+        cmake \
+        ccache \
+        gpg-agent \
+        python3-pip \
+        python3-venv \
+        python-is-python3 \
+        ninja-build \
+        lsb-release \
+        xz-utils \
+        software-properties-common \
+    && apt-get clean
+
+# Install node.js 18.x
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get update \
+    && apt-get install -y nodejs \
+    && apt-get clean
+
+# Install Eigen
+RUN wget https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.zip \
+    && unzip eigen-3.4.0.zip && rm eigen-3.4.0.zip \
+    && cd eigen-3.4.0 \
+    && cmake -GNinja -H. -Bbuild_native -DCMAKE_INSTALL_PREFIX=/install/native && ninja -C build_native install \
+    && emcmake cmake -GNinja -H. -Bbuild_emsdk -DCMAKE_INSTALL_PREFIX=/install/emscripten && ninja -C build_emsdk install \
+    && cd .. && rm -rf eigen-3.4.0
+
+# Install Boost headers
+RUN wget -qc  https://sourceforge.net/projects/boost/files/boost/1.81.0/boost_1_81_0.tar.bz2/download -O /src/boost.tar.bz2 \
+    && cd /install/native \
+    && tar jxf /src/boost.tar.bz2 \
+    && cd boost_1_81_0 \
+    && ./bootstrap.sh \
+    && ./b2 toolset=emscripten headers \
+    && cd /install/emscripten \
+    && tar jxf /src/boost.tar.bz2 \
+    && cd boost_1_81_0 \
+    && ./bootstrap.sh \
+    && ./b2 toolset=gcc headers \
+    && rm /src/boost.tar.bz2
+
+# Install Geometry-Central
+RUN git clone --recurse-submodules https://github.com/nmwsharp/geometry-central.git \
+    && cd geometry-central \
+    && emcmake cmake -DEIGEN3_INCLUDE_DIR=/install/emscripten/include/eigen3 -DCMAKE_BUILD_TYPE=Release -H. -DCMAKE_INSTALL_PREFIX=/install/emscripten -Bbuild_wasm -GNinja  \
+    && ninja -C build_wasm all install \
+    && cmake -DEIGEN3_INCLUDE_DIR=/install/native/include/eigen3 -DCMAKE_BUILD_TYPE=RelWithDebInfo -H. -DCMAKE_INSTALL_PREFIX=/install/native -Bbuild_native -GNinja  \
+    && ninja -C build_native all install \
+    && cd .. && rm -rf geometry-central
+
+# Install GTest
+RUN wget https://github.com/google/googletest/archive/refs/tags/v1.13.0.zip \
+    && unzip v1.13.0 && rm v1.13.0.zip \
+    && cd googletest-1.13.0 \
+    && cmake -GNinja -H. -Bbuild_native -DCMAKE_INSTALL_PREFIX=/install/native && ninja -C build_native install \
+    && cd .. && rm -rf googletest-1.13.0
+
+# Install Polyscope

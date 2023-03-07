@@ -1,0 +1,49 @@
+{
+    "name": "v3d-devenv",
+    "dockerFile": "../Dockerfile.devenv",
+    "context": ".",
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "terminal.integrated.shell.linux.profile": "/bin/bash"
+            },
+            "extensions": [
+                "llvm-vs-code-extensions.vscode-clangd",
+                "xaver.clang-format",
+                "twxs.cmake",
+                "ms-python.python",
+                "vadimcn.vscode-lldb",
+                "matepek.vscode-catch2-test-adapter",
+                "streetsidesoftware.code-spell-checker",
+                "eamodio.gitlens",
+                "DavidAnson.vscode-markdownlint",
+                "vscode-icons-team.vscode-icons",
+                "esbenp.prettier-vscode"
+            ]
+        }
+    },
+    "containerUser": "${env:USER}",
+    "remoteUser": "${env:USER}",
+    "workspaceFolder": "/workspace",
+    "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
+    "mounts": [
+        "source=${env:HOME}/.ssh,target=/home/${env:USER}/.ssh,type=bind",
+        "source=${env:HOME}/.gitconfig,target=/home/${env:USER}/.gitconfig,type=bind",
+        // "source=v3d-vscode-extensions,target=/home/${env:USER}/.vscode-server/extensions,type=volume",
+        "source=/,target=/hostfs,type=bind,consistency=delegated"
+    ],
+    "postCreateCommand": "sudo chown -R ${env:USER} /workspace",
+    "build": {
+        "args": {
+            "USER_NAME": "${env:USER}",
+            "USER_UID": "${env:USER_UID}",
+            "USER_GID": "${env:USER_GID}",
+        }
+    },
+    "runArgs": [
+        "-v",
+        "/var/run/docker.sock:/var/run/docker.sock",
+        "-h",
+        "v3d-devenv"
+    ]
+}
